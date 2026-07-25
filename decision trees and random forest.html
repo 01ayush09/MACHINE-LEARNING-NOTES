@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Decision Trees & Random Forest — Step by Step Notes</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    background: #ffffff;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    color: #1a1a1a;
+    margin: 0;
+    padding: 0;
+  }
+  .page {
+    background: #ffffff;
+    width: 210mm;
+    min-height: 297mm;
+    margin: 20px auto;
+    padding: 18mm 16mm;
+    page-break-after: always;
+    border-bottom: 2px dashed #ccc;
+  }
+  .page:last-child { page-break-after: auto; border-bottom: none; }
+
+  h1 { color: #0b3d91; font-size: 26px; border-bottom: 3px solid #0b3d91; padding-bottom: 8px; }
+  h2 { color: #0b3d91; font-size: 21px; margin-top: 26px; border-left: 6px solid #0b3d91; padding-left: 10px; }
+  h3 { color: #1a5276; font-size: 17px; margin-top: 18px; }
+  p, li { font-size: 14.5px; line-height: 1.55; }
+
+  table { border-collapse: collapse; width: 100%; margin: 12px 0 18px 0; font-size: 13px; }
+  th, td { border: 1px solid #999; padding: 6px 8px; text-align: center; }
+  th { background: #0b3d91; color: white; }
+  tr:nth-child(even) { background: #f2f5fa; }
+
+  .formula-box {
+    background: #ffffff;
+    border: 2px solid #0b3d91;
+    border-left: 8px solid #0b3d91;
+    border-radius: 6px;
+    padding: 14px 20px;
+    margin: 14px 0;
+    font-size: 25px;
+    font-family: 'Cambria Math', Georgia, serif;
+    text-align: center;
+    color: #0b3d91;
+    font-weight: 600;
+  }
+  .formula-label {
+    font-size: 13px;
+    color: #555;
+    font-family: Arial, sans-serif;
+    font-weight: normal;
+    margin-top: 6px;
+  }
+  .obj-role {
+    background: #fafafa;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 10px 16px;
+    margin: 10px 0 18px 0;
+  }
+  .obj-role p { margin: 4px 0; }
+  .step {
+    background: #ffffff;
+    border: 1px solid #d0d0d0;
+    border-left: 5px solid #2874a6;
+    padding: 10px 14px;
+    margin: 10px 0;
+    border-radius: 4px;
+  }
+  .step b { color: #2874a6; }
+  .calc {
+    background: #ffffff;
+    border: 1px dashed #888;
+    padding: 10px 14px;
+    margin: 8px 0;
+    font-family: 'Consolas', monospace;
+    font-size: 14px;
+  }
+  .tag { display:inline-block; background:#0b3d91; color:white; font-size:12px; padding:2px 10px; border-radius:12px; margin-bottom:8px;}
+  .footer { text-align:center; font-size:12px; color:#999; margin-top:30px; }
+  sub, sup { font-size: 70%; }
+
+  .diagram-wrap { text-align: center; margin: 16px 0 20px 0; }
+  .diagram-wrap svg { max-width: 100%; height: auto; }
+  .diagram-caption { font-size: 12px; color: #666; font-style: italic; margin-top: 4px; }
+  .node-box { fill: #ffffff; stroke: #0b3d91; stroke-width: 2; rx: 8; ry: 8; }
+  .leaf-box { fill: #eaf3ff; stroke: #1a5276; stroke-width: 2; rx: 8; ry: 8; }
+  .node-text { font-family: Arial, sans-serif; font-size: 12px; fill: #1a1a1a; text-anchor: middle; }
+  .node-title { font-family: Arial, sans-serif; font-size: 13px; font-weight: bold; fill: #0b3d91; text-anchor: middle; }
+  .edge-line { stroke: #555; stroke-width: 2; fill: none; }
+  .edge-label { font-family: Arial, sans-serif; font-size: 11.5px; fill: #2874a6; font-weight: bold; text-anchor: middle; }
+</style>
+</head>
+<body>
+
+<!-- ============ PAGE 1 ============ -->
+<div class="page">
+  <span class="tag">PAGE 1 / 6</span>
+  <h1>Decision Trees (ID3 & CART) and Random Forest — Complete Step-by-Step Notes</h1>
+  <p>These notes explain, from first principles, how <b>ID3</b>, <b>CART</b>, and <b>Random Forest</b> work
+  internally — including every formula, its objective, and its role in the algorithm. Two small synthetic
+  datasets (10 rows × 5 columns each) are used throughout: one for <b>classification</b> and one for
+  <b>regression</b>, so every formula below is demonstrated with real numbers, not just theory.</p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 900 130" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arrowP1" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#555"/></marker>
+      </defs>
+      <rect class="node-box" x="10" y="35" width="150" height="55"/>
+      <text class="node-text" x="85" y="58">Raw Dataset</text>
+      <text class="node-text" x="85" y="74">(10 rows × 5 cols)</text>
+
+      <line class="edge-line" x1="160" y1="62" x2="205" y2="62" marker-end="url(#arrowP1)"/>
+
+      <rect class="node-box" x="207" y="25" width="175" height="75"/>
+      <text class="node-text" x="294" y="50">Splitting Formula</text>
+      <text class="node-text" x="294" y="66">Entropy / Gini /</text>
+      <text class="node-text" x="294" y="82">Variance Reduction</text>
+
+      <line class="edge-line" x1="382" y1="62" x2="427" y2="62" marker-end="url(#arrowP1)"/>
+
+      <rect class="node-box" x="429" y="25" width="175" height="75"/>
+      <text class="node-text" x="516" y="50">Build Tree</text>
+      <text class="node-text" x="516" y="66">Recursively pick</text>
+      <text class="node-text" x="516" y="82">best split (ID3 / CART)</text>
+
+      <line class="edge-line" x1="604" y1="62" x2="649" y2="62" marker-end="url(#arrowP1)"/>
+
+      <rect class="leaf-box" x="651" y="35" width="120" height="55"/>
+      <text class="node-text" x="711" y="58">Single Tree</text>
+      <text class="node-text" x="711" y="74">Prediction</text>
+
+      <line class="edge-line" x1="771" y1="62" x2="810" y2="62" marker-end="url(#arrowP1)"/>
+      <text class="node-text" x="855" y="58">Many</text>
+      <text class="node-text" x="855" y="72">Trees →</text>
+      <text class="node-text" x="855" y="86">Forest</text>
+    </svg>
+    <div class="diagram-caption">Fig 1. Pipeline overview — a dataset feeds a splitting formula, which recursively builds a tree (ID3/CART); many such trees combined form a Random Forest.</div>
+  </div>
+
+  <h2>1. Synthetic Dataset A — Classification Task</h2>
+  <p><b>Goal:</b> Predict whether a person will <b>Play Golf</b> (Yes/No) based on weather conditions.</p>
+  <table>
+    <tr><th>#</th><th>Outlook</th><th>Temperature</th><th>Humidity</th><th>Wind</th><th>PlayGolf (Target)</th></tr>
+    <tr><td>1</td><td>Sunny</td><td>Hot</td><td>High</td><td>Weak</td><td>No</td></tr>
+    <tr><td>2</td><td>Sunny</td><td>Hot</td><td>High</td><td>Strong</td><td>No</td></tr>
+    <tr><td>3</td><td>Overcast</td><td>Hot</td><td>High</td><td>Weak</td><td>Yes</td></tr>
+    <tr><td>4</td><td>Rain</td><td>Mild</td><td>High</td><td>Weak</td><td>Yes</td></tr>
+    <tr><td>5</td><td>Rain</td><td>Cool</td><td>Normal</td><td>Weak</td><td>Yes</td></tr>
+    <tr><td>6</td><td>Rain</td><td>Cool</td><td>Normal</td><td>Strong</td><td>No</td></tr>
+    <tr><td>7</td><td>Overcast</td><td>Cool</td><td>Normal</td><td>Strong</td><td>Yes</td></tr>
+    <tr><td>8</td><td>Sunny</td><td>Mild</td><td>High</td><td>Weak</td><td>No</td></tr>
+    <tr><td>9</td><td>Sunny</td><td>Cool</td><td>Normal</td><td>Weak</td><td>Yes</td></tr>
+    <tr><td>10</td><td>Rain</td><td>Mild</td><td>Normal</td><td>Weak</td><td>Yes</td></tr>
+  </table>
+  <p>Class counts: <b>Yes = 6</b>, <b>No = 4</b> (out of 10 total rows). This dataset is used for ID3 and CART (classification) demonstrations on pages 2–4.</p>
+
+  <h2>2. Synthetic Dataset B — Regression Task</h2>
+  <p><b>Goal:</b> Predict the <b>Price</b> of a house (in $1000s) based on its features.</p>
+  <table>
+    <tr><th>#</th><th>Size (sqft)</th><th>Bedrooms</th><th>Age (yrs)</th><th>LocationScore (1–10)</th><th>Price (Target)</th></tr>
+    <tr><td>1</td><td>1200</td><td>2</td><td>5</td><td>7</td><td>220</td></tr>
+    <tr><td>2</td><td>1500</td><td>3</td><td>8</td><td>6</td><td>250</td></tr>
+    <tr><td>3</td><td>900</td><td>2</td><td>15</td><td>4</td><td>150</td></tr>
+    <tr><td>4</td><td>2000</td><td>4</td><td>3</td><td>9</td><td>400</td></tr>
+    <tr><td>5</td><td>1100</td><td>2</td><td>20</td><td>5</td><td>180</td></tr>
+    <tr><td>6</td><td>1800</td><td>3</td><td>6</td><td>8</td><td>340</td></tr>
+    <tr><td>7</td><td>1300</td><td>3</td><td>10</td><td>6</td><td>240</td></tr>
+    <tr><td>8</td><td>2200</td><td>4</td><td>2</td><td>9</td><td>430</td></tr>
+    <tr><td>9</td><td>950</td><td>2</td><td>18</td><td>4</td><td>160</td></tr>
+    <tr><td>10</td><td>1600</td><td>3</td><td>7</td><td>7</td><td>300</td></tr>
+  </table>
+  <p>Mean Price = 267 ($1000s). This dataset is used for the CART regression demonstration on page 5, and both datasets feed into Random Forest on page 6.</p>
+</div>
+
+<!-- ============ PAGE 2 ============ -->
+<div class="page">
+  <span class="tag">PAGE 2 / 6</span>
+  <h2>3. ID3 Algorithm — Concept & Core Formulas</h2>
+  <p><b>ID3 (Iterative Dichotomiser 3)</b> builds a decision tree by greedily choosing, at every node, the
+  attribute that produces the <b>purest possible split</b>, measured using <b>Entropy</b> and
+  <b>Information Gain</b>. It only works with categorical features and always creates one branch per
+  attribute value (multi-way splits).</p>
+
+  <h3>3.1 Entropy — measuring impurity/disorder</h3>
+  <div class="formula-box">
+    H(S) = − Σ p<sub>i</sub> · log<sub>2</sub>(p<sub>i</sub>)
+    <div class="formula-label">where p<sub>i</sub> = proportion of class i in set S</div>
+  </div>
+  <div class="obj-role">
+    <p><b>Objective:</b> Quantify how mixed/impure a set of examples is. Entropy = 0 means perfectly pure (all one class); Entropy = 1 (for 2 classes) means maximum disorder (50/50 split).</p>
+    <p><b>Role:</b> Entropy is the base quantity used to measure impurity <i>before</i> and <i>after</i> a split, so we can measure how much a split helps.</p>
+  </div>
+
+  <h3>3.2 Information Gain — choosing the best attribute</h3>
+  <div class="formula-box">
+    IG(S, A) = H(S) − Σ<sub>v∈A</sub> ( |S<sub>v</sub>| / |S| ) · H(S<sub>v</sub>)
+    <div class="formula-label">where S<sub>v</sub> = subset of S where attribute A = v</div>
+  </div>
+  <div class="obj-role">
+    <p><b>Objective:</b> Measure the reduction in entropy achieved by splitting on attribute A.</p>
+    <p><b>Role:</b> ID3 computes IG for every candidate attribute at a node and picks the attribute with the <b>highest Information Gain</b> as the splitting attribute.</p>
+  </div>
+
+  <h3>3.3 Step-by-Step Working of ID3 (using Dataset A)</h3>
+  <div class="step"><b>Step 1 — Compute root entropy H(S)</b><br>
+    Class counts: Yes = 6, No = 4, Total = 10 → p(Yes)=0.6, p(No)=0.4
+    <div class="calc">
+H(S) = −(0.6 × log₂0.6 + 0.4 × log₂0.4)
+     = −(0.6 × −0.737 + 0.4 × −1.322)
+     = −(−0.442 − 0.529)
+     = <b>0.971</b>
+    </div>
+  </div>
+  <div class="step"><b>Step 2 — Split on attribute "Wind" and compute conditional entropies</b><br>
+    Wind = Weak → 7 rows (5 Yes, 2 No); Wind = Strong → 3 rows (1 Yes, 2 No)
+    <div class="calc">
+H(Weak)   = −(5/7·log₂(5/7) + 2/7·log₂(2/7)) = 0.863
+H(Strong) = −(1/3·log₂(1/3) + 2/3·log₂(2/3)) = 0.918
+    </div>
+  </div>
+  <div class="step"><b>Step 3 — Compute weighted entropy after split</b>
+    <div class="calc">
+H(S,Wind) = (7/10)×0.863 + (3/10)×0.918 = 0.604 + 0.275 = <b>0.879</b>
+    </div>
+  </div>
+  <div class="step"><b>Step 4 — Compute Information Gain for "Wind"</b>
+    <div class="calc">
+IG(S, Wind) = H(S) − H(S,Wind) = 0.971 − 0.879 = <b>0.092</b>
+    </div>
+  </div>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 600 210" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arrowP2" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#555"/></marker>
+      </defs>
+      <rect class="node-box" x="215" y="10" width="170" height="55"/>
+      <text class="node-title" x="300" y="30">S — 10 rows</text>
+      <text class="node-text" x="300" y="48">Entropy H(S) = 0.971</text>
+
+      <line class="edge-line" x1="270" y1="65" x2="120" y2="130" marker-end="url(#arrowP2)"/>
+      <text class="edge-label" x="165" y="98">Wind = Weak</text>
+
+      <line class="edge-line" x1="330" y1="65" x2="480" y2="130" marker-end="url(#arrowP2)"/>
+      <text class="edge-label" x="435" y="98">Wind = Strong</text>
+
+      <rect class="leaf-box" x="30" y="132" width="180" height="60"/>
+      <text class="node-title" x="120" y="152">Weak (7 rows)</text>
+      <text class="node-text" x="120" y="168">5 Yes / 2 No</text>
+      <text class="node-text" x="120" y="184">H = 0.863</text>
+
+      <rect class="leaf-box" x="390" y="132" width="180" height="60"/>
+      <text class="node-title" x="480" y="152">Strong (3 rows)</text>
+      <text class="node-text" x="480" y="168">1 Yes / 2 No</text>
+      <text class="node-text" x="480" y="184">H = 0.918</text>
+    </svg>
+    <div class="diagram-caption">Fig 2. Splitting on "Wind" reduces weighted entropy from 0.971 to 0.879 → Information Gain = 0.092.</div>
+  </div>
+</div>
+
+<!-- ============ PAGE 3 ============ -->
+<div class="page">
+  <span class="tag">PAGE 3 / 6</span>
+  <h2>4. ID3 — Building the Full Tree</h2>
+  <div class="step"><b>Step 5 — Repeat Step 2–4 for every other attribute</b><br>
+    Compute IG(S, Outlook), IG(S, Temperature), IG(S, Humidity) the same way as Wind.
+    Suppose the results are: <b>Outlook = 0.246</b>, Humidity = 0.151, Temperature = 0.029, Wind = 0.092.
+  </div>
+  <div class="step"><b>Step 6 — Select the attribute with maximum Information Gain</b><br>
+    "Outlook" has the highest IG → it becomes the <b>root node</b> of the tree.
+  </div>
+  <div class="step"><b>Step 7 — Split dataset by root attribute's values</b><br>
+    Outlook = Sunny (rows 1,2,8,9) → Outlook = Overcast (rows 3,7) → Outlook = Rain (rows 4,5,6,10)
+    Each branch creates a new (smaller) subset of data.
+  </div>
+  <div class="step"><b>Step 8 — Check stopping conditions on each branch</b><br>
+    • If all rows in a subset have the same class → make it a <b>leaf node</b> (e.g. Overcast → all "Yes", pure, becomes leaf directly).<br>
+    • Otherwise, recursively repeat Steps 1–7 on that subset using the <b>remaining attributes</b>.
+  </div>
+  <div class="step"><b>Step 9 — Recursion stops when:</b>
+    (a) all examples belong to one class, (b) no attributes remain, or (c) subset is empty (assign majority class).
+  </div>
+  <div class="step"><b>Step 10 — Final Tree</b><br>
+    The completed tree is a set of nested if/else rules built purely from Information Gain decisions —
+    used directly for predicting new samples by traversing branch-by-branch.
+  </div>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 780 330" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arrowP3" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#555"/></marker>
+      </defs>
+      <rect class="node-box" x="305" y="10" width="150" height="50"/>
+      <text class="node-title" x="380" y="30">Outlook</text>
+      <text class="node-text" x="380" y="46">(root, 10 rows)</text>
+
+      <line class="edge-line" x1="330" y1="60" x2="120" y2="120" marker-end="url(#arrowP3)"/>
+      <text class="edge-label" x="200" y="90">Sunny</text>
+      <line class="edge-line" x1="380" y1="60" x2="380" y2="120" marker-end="url(#arrowP3)"/>
+      <text class="edge-label" x="410" y="90">Overcast</text>
+      <line class="edge-line" x1="430" y1="60" x2="640" y2="120" marker-end="url(#arrowP3)"/>
+      <text class="edge-label" x="560" y="90">Rain</text>
+
+      <rect class="node-box" x="35" y="122" width="170" height="55"/>
+      <text class="node-title" x="120" y="142">Sunny (4 rows)</text>
+      <text class="node-text" x="120" y="158">split on Humidity</text>
+
+      <rect class="leaf-box" x="305" y="122" width="150" height="55"/>
+      <text class="node-title" x="380" y="145">Overcast (2 rows)</text>
+      <text class="node-text" x="380" y="163">Leaf → Yes (pure)</text>
+
+      <rect class="node-box" x="555" y="122" width="170" height="55"/>
+      <text class="node-title" x="640" y="142">Rain (4 rows)</text>
+      <text class="node-text" x="640" y="158">split on Wind</text>
+
+      <line class="edge-line" x1="90" y1="177" x2="55" y2="235" marker-end="url(#arrowP3)"/>
+      <text class="edge-label" x="45" y="210">Humidity=High</text>
+      <line class="edge-line" x1="150" y1="177" x2="205" y2="235" marker-end="url(#arrowP3)"/>
+      <text class="edge-label" x="205" y="210">Humidity=Normal</text>
+
+      <rect class="leaf-box" x="0" y="237" width="120" height="55"/>
+      <text class="node-title" x="60" y="258">High (3 rows)</text>
+      <text class="node-text" x="60" y="275">Leaf → No (pure)</text>
+
+      <rect class="leaf-box" x="145" y="237" width="120" height="55"/>
+      <text class="node-title" x="205" y="258">Normal (1 row)</text>
+      <text class="node-text" x="205" y="275">Leaf → Yes (pure)</text>
+
+      <line class="edge-line" x1="600" y1="177" x2="565" y2="235" marker-end="url(#arrowP3)"/>
+      <text class="edge-label" x="545" y="210">Wind=Weak</text>
+      <line class="edge-line" x1="680" y1="177" x2="715" y2="235" marker-end="url(#arrowP3)"/>
+      <text class="edge-label" x="715" y="210">Wind=Strong</text>
+
+      <rect class="leaf-box" x="505" y="237" width="120" height="55"/>
+      <text class="node-title" x="565" y="258">Weak (3 rows)</text>
+      <text class="node-text" x="565" y="275">Leaf → Yes (pure)</text>
+
+      <rect class="leaf-box" x="655" y="237" width="120" height="55"/>
+      <text class="node-title" x="715" y="258">Strong (1 row)</text>
+      <text class="node-text" x="715" y="275">Leaf → No (pure)</text>
+    </svg>
+    <div class="diagram-caption">Fig 3. Complete ID3 decision tree grown on Dataset A — every leaf here is already 100% pure.</div>
+  </div>
+
+  <h3>4.1 Objective & Role of ID3 (Summary)</h3>
+  <div class="obj-role">
+    <p><b>Objective of ID3:</b> Greedily construct the tree that reduces entropy (uncertainty about the class label) the fastest at every step, producing a compact, human-readable rule set.</p>
+    <p><b>Role in ML pipeline:</b> ID3 is the foundational classification-tree algorithm; it only handles categorical features/multi-way splits and has no built-in pruning, which limits it to simple, mostly categorical datasets — but it directly inspired CART and modern tree ensembles.</p>
+  </div>
+
+  <h3>4.2 Limitations of ID3 (why CART was introduced)</h3>
+  <ul>
+    <li>Cannot handle continuous numeric attributes directly.</li>
+    <li>No built-in pruning → prone to overfitting.</li>
+    <li>Biased toward attributes with many distinct values.</li>
+    <li>Only supports classification, not regression.</li>
+  </ul>
+</div>
+
+<!-- ============ PAGE 4 ============ -->
+<div class="page">
+  <span class="tag">PAGE 4 / 6</span>
+  <h2>5. CART Algorithm — Concept & Core Formulas</h2>
+  <p><b>CART (Classification And Regression Trees)</b> improves on ID3 by supporting both classification
+  and regression, always producing <b>binary splits</b> (yes/no on a threshold), and using different
+  impurity measures: <b>Gini Impurity</b> for classification and <b>Variance Reduction</b> for regression.</p>
+
+  <h3>5.1 Gini Impurity — for Classification</h3>
+  <div class="formula-box">
+    Gini(S) = 1 − Σ p<sub>i</sub><sup>2</sup>
+  </div>
+  <div class="obj-role">
+    <p><b>Objective:</b> Measure the probability of misclassifying a randomly chosen element if it were labeled randomly according to the class distribution in S. Lower Gini = purer node.</p>
+    <p><b>Role:</b> CART evaluates every possible binary split and chooses the one that gives the <b>largest reduction</b> in weighted Gini impurity.</p>
+  </div>
+
+  <h3>5.2 Step-by-Step — Gini Calculation (Dataset A, split on Wind)</h3>
+  <div class="step"><b>Step 1 — Root Gini</b>
+    <div class="calc">Gini(S) = 1 − (0.6² + 0.4²) = 1 − (0.36 + 0.16) = <b>0.48</b></div>
+  </div>
+  <div class="step"><b>Step 2 — Gini of each child node (Wind = Weak / Strong)</b>
+    <div class="calc">
+Gini(Weak)   = 1 − ((5/7)² + (2/7)²) = 1 − 0.592 = 0.408
+Gini(Strong) = 1 − ((1/3)² + (2/3)²) = 1 − 0.556 = 0.444
+    </div>
+  </div>
+  <div class="step"><b>Step 3 — Weighted Gini after split</b>
+    <div class="calc">Gini(S,Wind) = (7/10)×0.408 + (3/10)×0.444 = 0.286 + 0.133 = <b>0.419</b></div>
+  </div>
+  <div class="step"><b>Step 4 — Gini Gain (reduction in impurity)</b>
+    <div class="calc">ΔGini = 0.48 − 0.419 = <b>0.061</b></div>
+    CART repeats this for every attribute/threshold and picks the split with the highest ΔGini.
+  </div>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 600 210" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arrowP4" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#555"/></marker>
+      </defs>
+      <rect class="node-box" x="215" y="10" width="170" height="55"/>
+      <text class="node-title" x="300" y="30">S — 10 rows</text>
+      <text class="node-text" x="300" y="48">Gini(S) = 0.48</text>
+
+      <line class="edge-line" x1="270" y1="65" x2="120" y2="130" marker-end="url(#arrowP4)"/>
+      <text class="edge-label" x="165" y="98">Wind = Weak</text>
+
+      <line class="edge-line" x1="330" y1="65" x2="480" y2="130" marker-end="url(#arrowP4)"/>
+      <text class="edge-label" x="435" y="98">Wind = Strong</text>
+
+      <rect class="leaf-box" x="30" y="132" width="180" height="60"/>
+      <text class="node-title" x="120" y="152">Weak (7 rows)</text>
+      <text class="node-text" x="120" y="168">5 Yes / 2 No</text>
+      <text class="node-text" x="120" y="184">Gini = 0.408</text>
+
+      <rect class="leaf-box" x="390" y="132" width="180" height="60"/>
+      <text class="node-title" x="480" y="152">Strong (3 rows)</text>
+      <text class="node-text" x="480" y="168">1 Yes / 2 No</text>
+      <text class="node-text" x="480" y="184">Gini = 0.444</text>
+    </svg>
+    <div class="diagram-caption">Fig 4. Binary CART split on "Wind" — weighted Gini drops from 0.48 to 0.419 → Gini Gain = 0.061.</div>
+  </div>
+
+  <h3>5.3 Variance Reduction — for Regression</h3>
+  <div class="formula-box">
+    Var(S) = (1/n) · Σ (y<sub>i</sub> − ȳ)<sup>2</sup>
+  </div>
+  <div class="formula-box">
+    ΔVar = Var(S) − [ (|S<sub>L</sub>|/|S|)·Var(S<sub>L</sub>) + (|S<sub>R</sub>|/|S|)·Var(S<sub>R</sub>) ]
+  </div>
+  <div class="obj-role">
+    <p><b>Objective:</b> Measure spread of target values around their mean; a good split should make each child's values cluster tightly around its own mean.</p>
+    <p><b>Role:</b> CART regression trees select the split (feature + threshold) that maximizes ΔVar — equivalent to minimizing the Sum of Squared Errors (SSE) after the split.</p>
+  </div>
+</div>
+
+<!-- ============ PAGE 5 ============ -->
+<div class="page">
+  <span class="tag">PAGE 5 / 6</span>
+  <h2>6. CART Regression — Full Worked Example (Dataset B)</h2>
+  <div class="step"><b>Step 1 — Compute overall variance of Price</b><br>
+    Mean Price = 267. Sum of squared deviations = 86,610.
+    <div class="calc">Var(S) = 86610 / 10 = <b>8661</b></div>
+  </div>
+  <div class="step"><b>Step 2 — Try candidate split: LocationScore ≥ 7 vs &lt; 7</b><br>
+    Left (≥7): rows 1,4,6,8,10 → Prices {220,400,340,430,300}, mean = 338<br>
+    Right (&lt;7): rows 2,3,5,7,9 → Prices {250,150,180,240,160}, mean = 196
+  </div>
+  <div class="step"><b>Step 3 — Compute variance of each child</b>
+    <div class="calc">
+Var(Left)  = 27680 / 5 = 5536
+Var(Right) = 8520 / 5  = 1704
+    </div>
+  </div>
+  <div class="step"><b>Step 4 — Weighted variance after split</b>
+    <div class="calc">Var(S,split) = 0.5×5536 + 0.5×1704 = 2768 + 852 = <b>3620</b></div>
+  </div>
+  <div class="step"><b>Step 5 — Variance Reduction (split quality)</b>
+    <div class="calc">ΔVar = 8661 − 3620 = <b>5041</b></div>
+    This large reduction means "LocationScore ≥ 7" is a strong candidate split. CART repeats this test for
+    every feature and every possible threshold, keeping the split with maximum ΔVar as the <b>root node</b>.
+  </div>
+  <div class="step"><b>Step 6 — Recurse</b><br>
+    Apply Steps 1–5 separately inside the Left and Right subsets (using remaining thresholds/features)
+    until a stopping rule is met (e.g. minimum samples per leaf, or maximum tree depth).
+  </div>
+  <div class="step"><b>Step 7 — Leaf prediction</b><br>
+    Each leaf stores the <b>mean</b> of the target values that fall into it; new samples are predicted by
+    traversing the tree to a leaf and returning that mean.
+  </div>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 620 210" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arrowP5" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#555"/></marker>
+      </defs>
+      <rect class="node-box" x="205" y="10" width="210" height="55"/>
+      <text class="node-title" x="310" y="30">S — 10 rows</text>
+      <text class="node-text" x="310" y="48">Var = 8661, Mean = 267</text>
+
+      <line class="edge-line" x1="270" y1="65" x2="130" y2="130" marker-end="url(#arrowP5)"/>
+      <text class="edge-label" x="150" y="98">LocationScore ≥ 7</text>
+
+      <line class="edge-line" x1="350" y1="65" x2="490" y2="130" marker-end="url(#arrowP5)"/>
+      <text class="edge-label" x="475" y="98">LocationScore &lt; 7</text>
+
+      <rect class="leaf-box" x="30" y="132" width="200" height="65"/>
+      <text class="node-title" x="130" y="152">Left (5 rows)</text>
+      <text class="node-text" x="130" y="168">Mean = 338</text>
+      <text class="node-text" x="130" y="184">Var = 5536</text>
+
+      <rect class="leaf-box" x="390" y="132" width="200" height="65"/>
+      <text class="node-title" x="490" y="152">Right (5 rows)</text>
+      <text class="node-text" x="490" y="168">Mean = 196</text>
+      <text class="node-text" x="490" y="184">Var = 1704</text>
+    </svg>
+    <div class="diagram-caption">Fig 5. CART regression split on Dataset B — variance drops from 8661 to a weighted 3620 → Variance Reduction = 5041.</div>
+  </div>
+
+  <h3>6.1 ID3 vs CART — Comparison</h3>
+  <table>
+    <tr><th>Aspect</th><th>ID3</th><th>CART</th></tr>
+    <tr><td>Split type</td><td>Multi-way</td><td>Always binary</td></tr>
+    <tr><td>Impurity measure</td><td>Entropy / Info Gain</td><td>Gini (classification), Variance (regression)</td></tr>
+    <tr><td>Feature types</td><td>Categorical only</td><td>Categorical & Continuous</td></tr>
+    <tr><td>Tasks supported</td><td>Classification only</td><td>Classification & Regression</td></tr>
+    <tr><td>Pruning</td><td>None</td><td>Cost-complexity pruning</td></tr>
+  </table>
+</div>
+
+<!-- ============ PAGE 6 ============ -->
+<div class="page">
+  <span class="tag">PAGE 6 / 6</span>
+  <h2>7. Random Forest — Concept & Core Formulas</h2>
+  <p><b>Random Forest</b> is an ensemble of many CART-style decision trees, each trained on a random
+  subset of data and features, whose predictions are combined (voted/averaged) to reduce overfitting
+  and variance compared to a single tree.</p>
+
+  <h3>7.1 Bootstrap Aggregation (Bagging)</h3>
+  <div class="formula-box">
+    D<sub>i</sub> = Bootstrap_Sample(D), &nbsp; i = 1 … N
+  </div>
+  <div class="obj-role">
+    <p><b>Objective:</b> Create N different training sets by sampling rows from D <i>with replacement</i>, so each tree sees a slightly different version of the data.</p>
+    <p><b>Role:</b> Introduces diversity between trees, which is the key ingredient that makes the ensemble more robust than any single tree.</p>
+  </div>
+
+  <h3>7.2 Random Feature Selection at Each Split</h3>
+  <div class="formula-box">
+    m = √p &nbsp; (classification) &nbsp;|&nbsp; m = p/3 &nbsp; (regression)
+    <div class="formula-label">where p = total number of features, m = features randomly considered per split</div>
+  </div>
+  <div class="obj-role">
+    <p><b>Objective:</b> At every split, only a random subset of m features (not all p) is considered.</p>
+    <p><b>Role:</b> Prevents all trees from always splitting on the same dominant feature, which further de-correlates the trees.</p>
+  </div>
+
+  <h3>7.3 Aggregation Formulas</h3>
+  <div class="formula-box">
+    ŷ<sub>classification</sub> = mode { T<sub>1</sub>(x), T<sub>2</sub>(x), … , T<sub>N</sub>(x) }
+  </div>
+  <div class="formula-box">
+    ŷ<sub>regression</sub> = (1/N) · Σ T<sub>i</sub>(x)
+  </div>
+  <div class="obj-role">
+    <p><b>Objective:</b> Combine all N trees' individual predictions into one final answer — majority vote for classification (Dataset A: PlayGolf), simple average for regression (Dataset B: Price).</p>
+    <p><b>Role:</b> Averaging/voting cancels out individual trees' errors (variance), which is the core reason Random Forest generalizes better than a single ID3 or CART tree.</p>
+  </div>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 780 260" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arrowP6" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#555"/></marker>
+      </defs>
+      <rect class="node-box" x="10" y="100" width="120" height="55"/>
+      <text class="node-title" x="70" y="122">Dataset</text>
+      <text class="node-text" x="70" y="138">(10 × 5)</text>
+
+      <line class="edge-line" x1="130" y1="115" x2="185" y2="45" marker-end="url(#arrowP6)"/>
+      <line class="edge-line" x1="130" y1="120" x2="185" y2="127" marker-end="url(#arrowP6)"/>
+      <line class="edge-line" x1="130" y1="130" x2="185" y2="210" marker-end="url(#arrowP6)"/>
+
+      <rect class="node-box" x="187" y="15" width="130" height="45"/>
+      <text class="node-text" x="252" y="42">Bootstrap D1</text>
+      <rect class="node-box" x="187" y="105" width="130" height="45"/>
+      <text class="node-text" x="252" y="132">Bootstrap D2</text>
+      <rect class="node-box" x="187" y="195" width="130" height="45"/>
+      <text class="node-text" x="252" y="222">Bootstrap DN</text>
+
+      <line class="edge-line" x1="317" y1="37" x2="372" y2="37" marker-end="url(#arrowP6)"/>
+      <line class="edge-line" x1="317" y1="127" x2="372" y2="127" marker-end="url(#arrowP6)"/>
+      <line class="edge-line" x1="317" y1="217" x2="372" y2="217" marker-end="url(#arrowP6)"/>
+
+      <rect class="leaf-box" x="374" y="15" width="130" height="45"/>
+      <text class="node-text" x="439" y="42">Tree T1 (CART)</text>
+      <rect class="leaf-box" x="374" y="105" width="130" height="45"/>
+      <text class="node-text" x="439" y="132">Tree T2 (CART)</text>
+      <rect class="leaf-box" x="374" y="195" width="130" height="45"/>
+      <text class="node-text" x="439" y="222">Tree TN (CART)</text>
+
+      <line class="edge-line" x1="504" y1="37" x2="565" y2="115" marker-end="url(#arrowP6)"/>
+      <line class="edge-line" x1="504" y1="127" x2="565" y2="127" marker-end="url(#arrowP6)"/>
+      <line class="edge-line" x1="504" y1="217" x2="565" y2="140" marker-end="url(#arrowP6)"/>
+
+      <rect class="node-box" x="567" y="100" width="150" height="55"/>
+      <text class="node-title" x="642" y="122">Aggregate</text>
+      <text class="node-text" x="642" y="138">Vote / Average</text>
+
+      <line class="edge-line" x1="717" y1="127" x2="762" y2="127" marker-end="url(#arrowP6)"/>
+      <text class="node-title" x="757" y="115">Final</text>
+      <text class="node-text" x="757" y="150">Prediction</text>
+    </svg>
+    <div class="diagram-caption">Fig 6. Random Forest bagging pipeline — N bootstrap samples train N independent CART trees, whose outputs are combined by majority vote (classification) or averaging (regression).</div>
+  </div>
+
+  <h3>7.4 Step-by-Step Working of Random Forest</h3>
+  <div class="step"><b>Step 1</b> — From the original dataset (e.g. 10-row Dataset A or B), create N bootstrap samples (e.g. N = 100), each of size 10, drawn with replacement.</div>
+  <div class="step"><b>Step 2</b> — For each bootstrap sample, grow a full CART tree using Gini (classification) or Variance Reduction (regression) as in pages 4–5.</div>
+  <div class="step"><b>Step 3</b> — At every node split inside each tree, randomly restrict candidate features to m = √p (Dataset A: p=4 → m=2) or m = p/3 (Dataset B: p=4 → m≈1–2).</div>
+  <div class="step"><b>Step 4</b> — Grow each tree to full depth (or a max-depth limit) with no pruning — individual trees are allowed to overfit slightly.</div>
+  <div class="step"><b>Step 5</b> — To predict a new sample x: pass it through all N trees to get N individual predictions.</div>
+  <div class="step"><b>Step 6</b> — Aggregate: take the majority class vote (classification) or the mean (regression) as the final Random Forest prediction.</div>
+  <div class="step"><b>Step 7 (optional)</b> — Rows not included in a tree's bootstrap sample ("out-of-bag" rows) can be used to estimate the model's OOB error without a separate test set.</div>
+
+  <h3>7.5 Objective & Role of Random Forest</h3>
+  <div class="obj-role">
+    <p><b>Objective:</b> Reduce the high variance of individual decision trees (ID3/CART) by averaging many de-correlated trees, improving accuracy and stability.</p>
+    <p><b>Role in ML pipeline:</b> Serves as a strong, low-maintenance baseline model for both classification (Dataset A → PlayGolf) and regression (Dataset B → Price), typically outperforming a single decision tree while remaining reasonably interpretable via feature importance scores.</p>
+  </div>
+
+  <div class="footer">End of Notes — Decision Trees (ID3, CART) & Random Forest, Step-by-Step with Worked Examples</div>
+</div>
+
+</body>
+</html>
